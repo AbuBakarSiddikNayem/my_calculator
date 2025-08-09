@@ -13,7 +13,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   String _operation = '';
   double _num1 = 0;
   bool _isOperationClicked = false;
-  String _history = '';
+  List<String> _history = [];
   String _currentCalculation = '';
   bool _isResultShown = false;
 
@@ -59,6 +59,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       double num2 = double.tryParse(_input) ?? 0;
       double result = 0;
       String fullCalculation = "$_num1 $_operation $num2";
+
       switch (_operation) {
         case '+':
           result = _num1 + num2;
@@ -75,19 +76,19 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
           } else {
             _result = 'Error';
             _input = '0';
-            _history = '$fullCalculation = Error';
+            _history.insert(0, '$fullCalculation = Error');
             _currentCalculation = '';
             _isResultShown = true;
-
             return;
           }
           break;
       }
+
       _result = (result == result.toInt())
           ? result.toInt().toString()
           : result.toString();
 
-      _history = '$_history\n$fullCalculation = $_result';
+      _history.insert(0, '$fullCalculation = $_result'); // newest on top
       _input = '0';
       _currentCalculation = '';
       _operation = '';
@@ -103,6 +104,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       _num1 = 0;
       _currentCalculation = '';
       _isResultShown = false;
+      _history.clear(); // clear all history
     });
   }
 
@@ -175,7 +177,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
               flex: 4,
               child: Container(
                 width: double.infinity,
-                padding: EdgeInsets.all(24),
+                padding: EdgeInsets.all(12),
                 margin: EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: displayColor,
@@ -189,16 +191,28 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                   ],
                 ),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
+                    // History list
                     if (_history.isNotEmpty)
-                      Text(
-                        _history,
-                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                        textAlign: TextAlign.end,
+                      Expanded(
+                        child: ListView.builder(
+                          reverse: true, // latest at bottom
+                          itemCount: _history.length,
+                          itemBuilder: (context, index) {
+                            return Text(
+                              _history[index],
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.grey[600],
+                              ),
+                              textAlign: TextAlign.end,
+                            );
+                          },
+                        ),
                       ),
-                    SizedBox(height: 5),
+                    if (_history.isEmpty) Spacer(),
+
                     if (_currentCalculation.isNotEmpty)
                       Text(
                         _currentCalculation,
@@ -210,6 +224,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                         textAlign: TextAlign.end,
                       ),
                     SizedBox(height: 10),
+
                     if (_result.isNotEmpty)
                       Text(
                         "= $_result",
@@ -233,6 +248,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                 ),
               ),
             ),
+
             Expanded(
               flex: 6,
               child: Container(
@@ -243,7 +259,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                       child: Row(
                         children: [
                           _buildButton(
-                            "CC",
+                            "CE",
                             functionTextColor,
                             functionButtonColor,
                             _onClearClick,
