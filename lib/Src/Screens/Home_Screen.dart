@@ -126,6 +126,47 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     });
   }
 
+  void _showHistorySheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return Container(
+          padding: EdgeInsets.all(16),
+          height: 300, // adjust as needed
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Calculation History",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              Divider(),
+              Expanded(
+                child: _history.isEmpty
+                    ? Center(child: Text("No history yet"))
+                    : ListView.builder(
+                        itemCount: _history.length,
+                        itemBuilder: (context, index) {
+                          return ListTile(
+                            title: Text(_history[index]),
+                            onTap: () {
+                              // Optional: load tapped history into input
+                              Navigator.pop(context);
+                            },
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildButton(
     String text,
     Color textColor,
@@ -193,26 +234,13 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    // History list
                     if (_history.isNotEmpty)
-                      Expanded(
-                        child: ListView.builder(
-                          reverse: true, // latest at bottom
-                          itemCount: _history.length,
-                          itemBuilder: (context, index) {
-                            return Text(
-                              _history[index],
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey[600],
-                              ),
-                              textAlign: TextAlign.end,
-                            );
-                          },
-                        ),
+                      Text(
+                        _history.first,
+                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                        textAlign: TextAlign.end,
                       ),
-                    if (_history.isEmpty) Spacer(),
-
+                    SizedBox(height: 5),
                     if (_currentCalculation.isNotEmpty)
                       Text(
                         _currentCalculation,
@@ -224,7 +252,6 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                         textAlign: TextAlign.end,
                       ),
                     SizedBox(height: 10),
-
                     if (_result.isNotEmpty)
                       Text(
                         "= $_result",
@@ -243,6 +270,19 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                         color: Colors.black87,
                       ),
                       textAlign: TextAlign.end,
+                    ),
+                    SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: ElevatedButton.icon(
+                        onPressed: _showHistorySheet,
+                        icon: Icon(Icons.history),
+                        label: Text("History"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey[300],
+                          foregroundColor: Colors.black87,
+                        ),
+                      ),
                     ),
                   ],
                 ),
