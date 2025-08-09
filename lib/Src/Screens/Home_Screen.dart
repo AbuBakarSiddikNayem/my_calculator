@@ -13,12 +13,16 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   String _operation = '';
   double _num1 = 0;
   bool _isOperationClicked = false;
-  List<String> _history = [];
+  final List<String> _history = [];
   String _currentCalculation = '';
   bool _isResultShown = false;
 
   void _onNumberClick(String value) {
     setState(() {
+      if (_input == '0' && value == '0' && !_input.contains('.')) {
+        // Prevent adding another 0 at start
+        return;
+      }
       if (_input == '0' || _isOperationClicked || _isResultShown) {
         _input = value;
         _isOperationClicked = false;
@@ -39,23 +43,39 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     });
   }
 
-  void _onOperationClick(String operation) {
+  void _onOperatorClick(String operator) {
     setState(() {
-      if (_isResultShown) {
+      // If we already have an operation and the user clicked another operator,
+      // calculate first before chaining
+      if (_operation.isNotEmpty && !_isOperationClicked) {
+        _onEqualClick();
+        _input = _result; // so next number starts from result
+        _num1 = double.tryParse(_result) ?? 0;
         _result = '';
-        _isResultShown = false;
-        _currentCalculation = '';
+      } else {
+        _num1 = double.tryParse(_input) ?? 0;
       }
-      _num1 = double.tryParse(_input) ?? 0;
-      _operation = operation;
-      _isOperationClicked = true;
 
-      _currentCalculation = "${_num1.toString()} $operation";
+      _operation = operator;
+      _isOperationClicked = true;
+      _isResultShown = false;
     });
   }
 
   void _onEqualClick() {
     setState(() {
+      if (_operation.isEmpty) return;
+
+      // Prevent equal if second number not typed
+      if ((_isOperationClicked && _input == '0' && !_input.contains('.'))) {
+        return;
+      }
+
+      // Prevent meaningless zero ops unless explicitly typed
+      if (_num1 == 0 && (_input == '0' || _input.isEmpty)) {
+        return;
+      }
+
       double num2 = double.tryParse(_input) ?? 0;
       double result = 0;
       String fullCalculation = "$_num1 $_operation $num2";
@@ -84,11 +104,21 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
           break;
       }
 
-      _result = (result == result.toInt())
+      _result = (result % 1 == 0)
           ? result.toInt().toString()
           : result.toString();
 
-      _history.insert(0, '$fullCalculation = $_result'); // newest on top
+      String num1Str = (_num1 % 1 == 0)
+          ? _num1.toInt().toString()
+          : _num1.toString();
+      String num2Str = (_input.contains('.') || num2 % 1 != 0)
+          ? num2.toString()
+          : num2.toInt().toString();
+
+      if (!(num1Str == "0" && num2Str == "0" && _result == "0")) {
+        _history.insert(0, '$num1Str $_operation $num2Str = $_result');
+      }
+
       _input = '0';
       _currentCalculation = '';
       _operation = '';
@@ -98,13 +128,10 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
 
   void _onClearClick() {
     setState(() {
-      _input = '0';
-      _result = '';
-      _operation = '';
-      _num1 = 0;
-      _currentCalculation = '';
-      _isResultShown = false;
-      _history.clear(); // clear all history
+      _input = '0'; // reset display input
+      _result = ''; // clear any result
+      _currentCalculation = ''; // clear current calc string
+      _isResultShown = false; // allow new typing
     });
   }
 
@@ -120,8 +147,10 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
 
   void _onDecimalClick() {
     setState(() {
+      // Allow decimal only if no decimal exists yet
       if (!_input.contains('.')) {
-        _input += '.';
+        // If starting fresh, prefix with "0."
+        _input = _input == '0' ? '0.' : '$_input.';
       }
     });
   }
@@ -129,39 +158,112 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   void _showHistorySheet() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (BuildContext context) {
-        return Container(
-          padding: EdgeInsets.all(16),
-          height: 300, // adjust as needed
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Calculation History",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              Divider(),
-              Expanded(
-                child: _history.isEmpty
-                    ? Center(child: Text("No history yet"))
-                    : ListView.builder(
-                        itemCount: _history.length,
-                        itemBuilder: (context, index) {
-                          return ListTile(
-                            title: Text(_history[index]),
-                            onTap: () {
-                              // Optional: load tapped history into input
-                              Navigator.pop(context);
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              padding: EdgeInsets.all(16),
+              height: MediaQuery.of(context).size.height * 0.6,
+              child: Column(
+                children: [
+                  Text(
+                    "History",
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  Expanded(
+                    child: _history.isEmpty
+                        ? Center(
+                            child: Text(
+                              "No history yet",
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
+                            reverse: true,
+                            itemCount: _history.length,
+                            separatorBuilder: (_, __) => SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final item = _history[index];
+                              final parts = item.split('=');
+                              final equation = parts[0].trim();
+                              final answer = parts.length > 1
+                                  ? parts[1].trim()
+                                  : "";
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            equation,
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              color: Colors.grey[700],
+                                            ),
+                                          ),
+                                          SizedBox(height: 4),
+                                          Text(
+                                            answer,
+                                            style: TextStyle(
+                                              fontSize: 22,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF5B86E5),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
                             },
-                          );
-                        },
+                          ),
+                  ),
+                  SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      icon: Icon(Icons.delete, color: Colors.white),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black87,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
+                      onPressed: () {
+                        setModalState(() {}); // updates sheet UI instantly
+                        setState(() {
+                          _history.clear();
+                        });
+                      },
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -216,76 +318,83 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
           children: [
             Expanded(
               flex: 4,
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(12),
-                margin: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: displayColor,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: Offset(0, 5),
+              child: Stack(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(12),
+                    margin: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: displayColor,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: Offset(0, 5),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    if (_history.isNotEmpty)
-                      Text(
-                        _history.first,
-                        style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                        textAlign: TextAlign.end,
-                      ),
-                    SizedBox(height: 5),
-                    if (_currentCalculation.isNotEmpty)
-                      Text(
-                        _currentCalculation,
-                        style: TextStyle(
-                          fontSize: 22,
-                          color: Colors.grey[700],
-                          fontWeight: FontWeight.w500,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (_history.isNotEmpty)
+                          Text(
+                            _history.first, // latest only
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.grey[600],
+                            ),
+                            textAlign: TextAlign.end,
+                          ),
+                        if (_currentCalculation.isNotEmpty)
+                          Text(
+                            _currentCalculation,
+                            style: TextStyle(
+                              fontSize: 22,
+                              color: Colors.grey[700],
+                              fontWeight: FontWeight.w500,
+                            ),
+                            textAlign: TextAlign.end,
+                          ),
+                        if (_result.isNotEmpty)
+                          Text(
+                            "= $_result",
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w500,
+                              color: operatorButtonColor,
+                            ),
+                            textAlign: TextAlign.end,
+                          ),
+                        Text(
+                          _input,
+                          style: TextStyle(
+                            fontSize: 48,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                          textAlign: TextAlign.end,
                         ),
-                        textAlign: TextAlign.end,
-                      ),
-                    SizedBox(height: 10),
-                    if (_result.isNotEmpty)
-                      Text(
-                        "= $_result",
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w500,
-                          color: operatorButtonColor,
-                        ),
-                        textAlign: TextAlign.end,
-                      ),
-                    Text(
-                      _input,
-                      style: TextStyle(
-                        fontSize: 48,
-                        fontWeight: FontWeight.bold,
+                      ],
+                    ),
+                  ),
+
+                  // 📌 Fixed History Icon at top right
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.history,
+                        size: 28,
                         color: Colors.black87,
                       ),
-                      textAlign: TextAlign.end,
+                      onPressed: _showHistorySheet,
                     ),
-                    SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: ElevatedButton.icon(
-                        onPressed: _showHistorySheet,
-                        icon: Icon(Icons.history),
-                        label: Text("History"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.grey[300],
-                          foregroundColor: Colors.black87,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
 
@@ -325,7 +434,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                             "/",
                             operatorTextColor,
                             operatorButtonColor,
-                            () => _onOperationClick('/'),
+                            () => _onOperatorClick('/'),
                           ),
                         ],
                       ),
@@ -355,7 +464,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                             "x",
                             operatorTextColor,
                             operatorButtonColor,
-                            () => _onOperationClick('x'),
+                            () => _onOperatorClick('x'),
                           ),
                         ],
                       ),
@@ -385,7 +494,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                             "-",
                             operatorTextColor,
                             operatorButtonColor,
-                            () => _onOperationClick('-'),
+                            () => _onOperatorClick('-'),
                           ),
                         ],
                       ),
@@ -415,7 +524,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                             "+",
                             operatorTextColor,
                             operatorButtonColor,
-                            () => _onOperationClick('+'),
+                            () => _onOperatorClick('+'),
                           ),
                         ],
                       ),
