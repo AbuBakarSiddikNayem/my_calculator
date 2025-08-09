@@ -303,7 +303,7 @@ class _CalculatorPanelState extends State<CalculatorPanel> {
                 ],
               ),
               child: Icon(
-                Icons.mic,
+                Icons.history,
                 size: 18,
                 color: widget.isDark ? Colors.white60 : Colors.black54,
               ),
