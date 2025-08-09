@@ -216,7 +216,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.w500,
-                          color: operatorTextColor,
+                          color: operatorButtonColor,
                         ),
                         textAlign: TextAlign.end,
                       ),
